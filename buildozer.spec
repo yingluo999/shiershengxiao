@@ -17,15 +17,17 @@ version = 1.0.0
 # 依赖
 requirements = python3,kivy,requests
 
-# ========== Android 权限配置 ==========
-# 添加所有需要的权限
+# Android 权限
 android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,MANAGE_EXTERNAL_STORAGE
 
-# Android API 版本
+# API 版本
 android.api = 33
 android.minapi = 21
 android.ndk = 25b
 android.archs = arm64-v8a
+
+# 允许访问外部存储（Android 10+ 兼容）
+android.manifest.application.android:requestLegacyExternalStorage = true
 
 # 屏幕方向
 orientation = portrait
@@ -35,13 +37,6 @@ fullscreen = 0
 android.accept_sdk_license = True
 android.encoding = utf-8
 android.release_artifact = apk
-
-# 日志级别
-android.logcat_filters = *:S python:D
-
-# 添加权限说明（可选）
-android.manifest_application_arguments = 
-    --application-label-zh-CN "十二生肖注册机器人"
 
 [buildozer]
 warn_on_root = 0
