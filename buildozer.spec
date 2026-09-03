@@ -1,9 +1,9 @@
 [app]
 
-# 应用名称 (显示在手机上的名字)
+# 应用名称
 title = 十二生肖注册机器人
 
-# 包名 (唯一标识)
+# 包名
 package.name = zodiacregister
 package.domain = com.qiqi
 
@@ -14,11 +14,14 @@ source.include_exts = py,json,txt
 # 版本号
 version = 1.0.0
 
-# 依赖 (添加了requests)
+# 依赖
 requirements = python3,kivy,requests
 
-# Android 配置
-android.permissions = android.permission.INTERNET
+# ========== Android 权限配置 ==========
+# 添加所有需要的权限
+android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,MANAGE_EXTERNAL_STORAGE
+
+# Android API 版本
 android.api = 33
 android.minapi = 21
 android.ndk = 25b
@@ -36,7 +39,10 @@ android.release_artifact = apk
 # 日志级别
 android.logcat_filters = *:S python:D
 
+# 添加权限说明（可选）
+android.manifest_application_arguments = 
+    --application-label-zh-CN "十二生肖注册机器人"
+
 [buildozer]
-# 关键配置：不警告 root 用户
 warn_on_root = 0
 log_level = 2
