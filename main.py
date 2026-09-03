@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-十二生肖注册机器人 - GUI界面（稳定版）
+十二生肖注册机器人 - GUI界面（带存储功能）
 """
 import os
 import threading
 import time
 import random
+import json
 from datetime import datetime
 
 from kivy.app import App
@@ -23,6 +24,58 @@ from kivy.logger import Logger
 
 # 导入注册逻辑
 from app.your_code import ZodiacBot
+
+# ========== Android权限处理 ==========
+def request_storage_permissions():
+    """请求存储权限"""
+    try:
+        from android.permissions import request_permissions, Permission
+        from android.storage import primary_external_storage_path
+        
+        # 请求权限列表
+        permissions = [
+            Permission.WRITE_EXTERNAL_STORAGE,
+            Permission.READ_EXTERNAL_STORAGE,
+            Permission.MANAGE_EXTERNAL_STORAGE,  # 管理所有文件权限
+        ]
+        
+        # 请求权限
+        request_permissions(permissions)
+        
+        # 获取外部存储路径
+        try:
+            sdcard = primary_external_storage_path()
+            return sdcard
+        except:
+            return '/storage/emulated/0/'
+            
+    except Exception as e:
+        Logger.warning('权限请求失败: {}'.format(str(e)))
+        return '/storage/emulated/0/'
+
+
+def get_app_data_dir():
+    """获取应用数据保存目录"""
+    try:
+        from android.storage import primary_external_storage_path
+        sdcard = primary_external_storage_path()
+    except:
+        sdcard = '/storage/emulated/0/'
+    
+    # 创建应用专属目录
+    app_dir = os.path.join(sdcard, 'ZodiacRegister')
+    try:
+        if not os.path.exists(app_dir):
+            os.makedirs(app_dir)
+            Logger.info('创建目录: {}'.format(app_dir))
+    except Exception as e:
+        Logger.warning('创建目录失败: {}'.format(str(e)))
+        # 降级到应用私有目录
+        app_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+        if not os.path.exists(app_dir):
+            os.makedirs(app_dir)
+    
+    return app_dir
 
 # ========== 字体设置 ==========
 def setup_fonts():
@@ -98,10 +151,16 @@ class ZodiacApp(App):
         super().__init__(**kwargs)
         self.is_running = False
         self.should_stop = False
+        self.data_dir = None
+        self.accounts_file = None
+        self.saved_accounts = []
         
     def build(self):
         self.title = '十二生肖注册机器人'
         Window.clearcolor = COLORS['bg']
+        
+        # 请求存储权限并初始化数据目录
+        self.init_storage()
         
         # 主布局
         main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
@@ -116,6 +175,16 @@ class ZodiacApp(App):
             color=COLORS['primary']
         )
         main_layout.add_widget(title)
+        
+        # 存储路径显示
+        self.path_label = StyledLabel(
+            text='保存路径: {}'.format(self.data_dir if self.data_dir else '获取中...'),
+            size_hint_y=None,
+            height=dp(25),
+            font_size=dp(10),
+            color=COLORS['warning']
+        )
+        main_layout.add_widget(self.path_label)
         
         # 输入区域
         input_box = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(120), spacing=5)
@@ -132,7 +201,7 @@ class ZodiacApp(App):
             hint_text='输入数量'
         )
         count_box.add_widget(self.count_input)
-        count_box.add_widget(Label())  # 占位
+        count_box.add_widget(Label())
         
         input_box.add_widget(count_box)
         
@@ -148,7 +217,7 @@ class ZodiacApp(App):
             hint_text='输入推荐码'
         )
         ref_box.add_widget(self.ref_input)
-        ref_box.add_widget(Label())  # 占位
+        ref_box.add_widget(Label())
         
         input_box.add_widget(ref_box)
         main_layout.add_widget(input_box)
@@ -183,7 +252,7 @@ class ZodiacApp(App):
         main_layout.add_widget(status_label)
         
         # 日志显示区域
-        log_scroll = ScrollView(size_hint_y=0.6)
+        log_scroll = ScrollView(size_hint_y=0.55)
         self.log_layout = BoxLayout(orientation='vertical', size_hint_y=None, spacing=2)
         self.log_layout.bind(minimum_height=self.log_layout.setter('height'))
         log_scroll.add_widget(self.log_layout)
@@ -204,9 +273,68 @@ class ZodiacApp(App):
         
         return main_layout
     
+    def init_storage(self):
+        """初始化存储"""
+        try:
+            # 请求权限
+            sdcard = request_storage_permissions()
+            self.data_dir = get_app_data_dir()
+            self.accounts_file = os.path.join(self.data_dir, 'accounts.json')
+            
+            # 加载已保存的账号
+            self.load_saved_accounts()
+            
+            Logger.info('存储目录: {}'.format(self.data_dir))
+            Logger.info('账号文件: {}'.format(self.accounts_file))
+        except Exception as e:
+            Logger.error('存储初始化失败: {}'.format(str(e)))
+            # 降级处理
+            self.data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+            if not os.path.exists(self.data_dir):
+                os.makedirs(self.data_dir)
+            self.accounts_file = os.path.join(self.data_dir, 'accounts.json')
+    
+    def load_saved_accounts(self):
+        """加载已保存的账号"""
+        try:
+            if os.path.exists(self.accounts_file):
+                with open(self.accounts_file, 'r', encoding='utf-8') as f:
+                    self.saved_accounts = json.load(f)
+                    Logger.info('加载了 {} 个已保存账号'.format(len(self.saved_accounts)))
+                    self.add_log('📂 已加载 {} 个历史账号'.format(len(self.saved_accounts)))
+            else:
+                self.saved_accounts = []
+        except Exception as e:
+            Logger.warning('加载账号失败: {}'.format(str(e)))
+            self.saved_accounts = []
+    
+    def save_account(self, account_info):
+        """保存单个账号到文件"""
+        try:
+            # 检查是否已存在
+            for i, acc in enumerate(self.saved_accounts):
+                if acc.get('phone') == account_info.get('phone'):
+                    # 更新已有记录
+                    self.saved_accounts[i] = account_info
+                    break
+            else:
+                # 添加新记录
+                self.saved_accounts.append(account_info)
+            
+            # 写入文件
+            with open(self.accounts_file, 'w', encoding='utf-8') as f:
+                json.dump(self.saved_accounts, f, ensure_ascii=False, indent=2)
+            
+            Logger.info('账号已保存: {}'.format(account_info.get('phone')))
+            return True
+        except Exception as e:
+            Logger.error('保存账号失败: {}'.format(str(e)))
+            return False
+    
     def init_logs(self, dt):
         """初始化日志"""
         self.add_log('程序已启动')
+        self.add_log('存储路径: {}'.format(self.data_dir))
         self.add_log('等待开始注册...')
     
     @mainthread
@@ -306,6 +434,13 @@ class ZodiacApp(App):
                 
                 if success:
                     success_count += 1
+                    # 添加时间戳
+                    info['register_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    # 保存到文件
+                    if self.save_account(info):
+                        self.add_log('💾 已保存到文件')
+                    
                     self.add_log('✅ 手机: {}'.format(info['phone']))
                     self.add_log('   密码: {}'.format(info['password']))
                     self.add_log('   姓名: {}'.format(info['realname']))
@@ -331,6 +466,8 @@ class ZodiacApp(App):
         self.add_log('')
         self.add_log('-' * 30)
         self.add_log('统计: 成功 {} 个，失败 {} 个'.format(success_count, fail_count))
+        self.add_log('总计: {} 个账号'.format(len(self.saved_accounts)))
+        self.add_log('保存路径: {}'.format(self.accounts_file))
         self.add_log('-' * 30)
         
         if not self.should_stop:
