@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 十二生肖注册机器人 - 核心逻辑
 """
@@ -6,17 +7,14 @@ import random
 import string
 import time
 import re
-import os
-from typing import Optional, Tuple, List
-from urllib.parse import quote
+from typing import Optional, Tuple
 
 
 class ZodiacBot:
     def __init__(self, base_url: str = "http://app.wanshengxiao.cn"):
         self.base_url = base_url
         self.session = None
-        self.ua = None  # 在Android上简化为随机UA
-    
+
     def get_random_ua(self) -> str:
         """获取随机UA"""
         uas = [
@@ -26,7 +24,7 @@ class ZodiacBot:
             'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.6549.124 Mobile Safari/537.36',
         ]
         return random.choice(uas)
-    
+
     def create_session(self):
         """创建新会话"""
         session = requests.Session()
@@ -42,16 +40,16 @@ class ZodiacBot:
         })
         session.headers['User-Agent'] = self.get_random_ua()
         return session
-    
+
     def generate_realistic_phone(self) -> str:
         """生成真实手机号"""
-        cmcc = ['134','135','136','137','138','139','147','148','150','151','152',
-                '157','158','159','172','178','182','183','184','187','188','195','197','198']
-        cucc = ['130','131','132','145','146','155','156','166','167','175','176','185','186','196']
-        ctcc = ['133','149','153','162','173','174','177','180','181','189','191','193','199']
-        virtual = ['170','171']
+        cmcc = ['134', '135', '136', '137', '138', '139', '147', '148', '150', '151', '152',
+                '157', '158', '159', '172', '178', '182', '183', '184', '187', '188', '195', '197', '198']
+        cucc = ['130', '131', '132', '145', '146', '155', '156', '166', '167', '175', '176', '185', '186', '196']
+        ctcc = ['133', '149', '153', '162', '173', '174', '177', '180', '181', '189', '191', '193', '199']
+        virtual = ['170', '171']
         all_prefixes = cmcc * 5 + cucc * 3 + ctcc * 2 + virtual
-        
+
         for _ in range(10):
             prefix = random.choice(all_prefixes)
             suffix = ''.join(random.choices(string.digits, k=8))
@@ -59,78 +57,56 @@ class ZodiacBot:
             if not any(p in phone for p in ['123456', '111111', '000000', '888888']):
                 return phone
         return '138' + ''.join(random.choices(string.digits, k=8))
-    
-    def generate_password(self) -> str:
-        """生成8-12位密码"""
-        length = random.randint(8, 12)
-        letters = string.ascii_letters
-        digits = string.digits
-        all_chars = letters + digits
-        
-        password = []
-        password.append(random.choice(letters))
-        password.append(random.choice(digits))
-        
-        for _ in range(length - 2):
-            password.append(random.choice(all_chars))
-        
-        random.shuffle(password)
-        return ''.join(password)
-    
+
+    def generate_human_password(self) -> str:
+        """生成真人风格的密码"""
+        # 字母部分：1-3个字母
+        letter_len = random.randint(1, 3)
+        letters = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=letter_len))
+
+        # 数字部分：6-9个数字
+        digit_len = random.randint(6, 9)
+        digits = ''.join(random.choices('0123456789', k=digit_len))
+
+        # 随机组合：字母在前 或 数字在前
+        if random.random() < 0.7:
+            password = letters + digits
+        else:
+            password = digits + letters
+
+        # 偶尔纯数字（像168379137这种）
+        if random.random() < 0.3:
+            password = ''.join(random.choices('0123456789', k=random.randint(9, 12)))
+
+        # 偶尔重复数字组合（像159357159357这种）
+        if random.random() < 0.15:
+            repeat = random.choice(['159357', '2580', '147258', '369', '123456', '654321'])
+            password = repeat + repeat[:random.randint(2, 6)]
+
+        return password[:12]
+
     def generate_realname(self) -> str:
         """生成随机中文姓名"""
-        surnames = ['王', '李', '张', '刘', '陈', '杨', '黄', '赵', '吴', '周', '徐', '孙', '马', '朱', '胡', 
-                    '郭', '林', '何', '高', '罗', '郑', '梁', '谢', '宋', '唐', '许', '韩', '冯', '邓', '曹',
-                    '彭', '曾', '萧', '田', '董', '潘', '袁', '蔡', '蒋', '余', '于', '叶', '杜', '苏', '魏',
-                    '吕', '丁', '任', '姚', '沈', '卢', '姜', '崔', '钟', '谭', '陆', '汪', '范', '金', '石']
-        
+        surnames = ['王', '李', '张', '刘', '陈', '杨', '黄', '赵', '吴', '周', '徐', '孙', '马', '朱', '胡',
+                    '郭', '林', '何', '高', '罗', '郑', '梁', '谢', '宋', '唐', '许', '韩', '冯', '邓', '曹']
+
         given_names = ['伟', '芳', '娜', '敏', '静', '丽', '强', '磊', '洋', '勇', '艳', '杰', '倩', '涛', '明',
-                      '超', '秀英', '华', '慧', '建', '文', '平', '刚', '桂英', '志强', '秀兰', '建国', '建军',
-                      '浩', '然', '宇', '轩', '瑞', '晨', '曦', '瑶', '琪', '琳', '博', '文', '昊', '天', '奕',
-                      '辰', '悦', '彤', '萱', '怡', '宁', '欣', '萌', '雨', '桐', '梓', '涵', '若', '溪', '乐',
-                      '瑶', '馨', '宁', '宜', '彦', '良', '淑', '珍', '金', '凤', '玉', '兰', '秀', '英', '云']
-        
+                       '超', '秀英', '华', '慧', '建', '文', '平', '刚', '桂英', '志强', '秀兰', '建国', '建军']
+
         surname = random.choice(surnames)
         if random.random() > 0.3:
             given = random.choice(given_names)
         else:
             given = random.choice(given_names) + random.choice(given_names)
-        
+
         return surname + given
-    
+
     def get_sms_code(self, session: requests.Session, phone: str) -> Optional[str]:
         """获取短信验证码"""
-        print(f"📱 验证手机: {phone}")
-        
-        # 模拟数学验证
-        ops = ['+', '-', '×']
-        op = random.choice(ops)
-        if op == '+':
-            n1, n2 = random.randint(1, 9), random.randint(1, 9)
-            ans = n1 + n2
-            print(f"🧮 数学验证: {n1} + {n2} = ? → {ans}")
-        elif op == '-':
-            n1 = random.randint(5, 10)
-            n2 = random.randint(1, n1 - 1)
-            ans = n1 - n2
-            print(f"🧮 数学验证: {n1} - {n2} = ? → {ans}")
-        else:
-            n1, n2 = random.randint(1, 5), random.randint(1, 5)
-            ans = n1 * n2
-            print(f"🧮 数学验证: {n1} × {n2} = ? → {ans}")
-        
-        time.sleep(random.uniform(0.3, 0.8))
-        
-        # 模拟图形验证码
-        img_code = ''.join(random.choices(string.digits, k=4))
-        print(f"🖼️  图形验证码: {img_code}")
-        time.sleep(random.uniform(0.3, 0.8))
-        
-        # 发送短信
         url = f"{self.base_url}/user/reg_sms"
         data = {'phone': phone}
-        time.sleep(random.uniform(0.5, 1.0))
-        
+        time.sleep(random.uniform(0.5, 1.5))
+
         try:
             response = session.post(url, data=data, timeout=10)
             if response.status_code == 200:
@@ -138,22 +114,19 @@ class ZodiacBot:
                 if result.get('status') == 1:
                     code_match = re.search(r'\b(\d{6})\b', result.get('info', ''))
                     if code_match:
-                        sms_code = code_match.group(1)
-                        print(f"✅ 验证码: {sms_code}")
-                        return sms_code
+                        return code_match.group(1)
             return None
-        except Exception as e:
-            print(f"❌ 异常: {e}")
+        except Exception:
             return None
-    
+
     def register_account(self, phone: str, password: str, realname: str, ref_code: str = "125872") -> Tuple[bool, str]:
         """注册账号"""
         session = self.create_session()
-        
+
         sms_code = self.get_sms_code(session, phone)
         if not sms_code:
             return False, "获取验证码失败"
-        
+
         url = f"{self.base_url}/user/reg"
         data = {
             'username': phone,
@@ -162,27 +135,27 @@ class ZodiacBot:
             'phone_code': sms_code,
             'ref': ref_code
         }
-        
+
         time.sleep(random.uniform(0.3, 0.8))
-        
+
         try:
             response = session.post(url, data=data, timeout=10)
             if response.status_code == 200:
                 result = response.json()
                 if result.get('status') == 1:
-                    return True, f"注册成功: {phone}"
+                    return True, "注册成功"
                 else:
                     return False, result.get('info', '未知错误')
             return False, f"HTTP {response.status_code}"
         except Exception as e:
             return False, str(e)
-    
+
     def login(self, phone: str, password: str) -> Tuple[bool, requests.Session, str]:
         """登录账号"""
         session = self.create_session()
         url = f"{self.base_url}/user/login"
         data = {'username': phone, 'pwd': password}
-        
+
         try:
             response = session.post(url, data=data, timeout=10)
             if response.status_code == 200:
@@ -194,24 +167,24 @@ class ZodiacBot:
             return False, session, f"HTTP {response.status_code}"
         except Exception as e:
             return False, session, str(e)
-    
+
     def bind_alipay(self, session: requests.Session, realname: str, alipay: str) -> Tuple[bool, str]:
         """绑定支付宝"""
         url = f"{self.base_url}/user/info"
-        
+
         data = {
             'realname': realname,
             'alipay': alipay,
             'type': 'alipay'
         }
-        
+
         session.headers.update({
             'Content-Type': 'application/x-www-form-urlencoded',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
             'Referer': f'{self.base_url}/user/info',
             'Upgrade-Insecure-Requests': '1',
         })
-        
+
         try:
             response = session.post(url, data=data, timeout=10)
             if response.status_code == 200:
@@ -222,28 +195,27 @@ class ZodiacBot:
                     else:
                         return False, result.get('info', '绑定失败')
                 except:
-                    html = response.text
-                    if '修改成功' in html or '成功' in html:
+                    if '修改成功' in response.text or '成功' in response.text:
                         return True, "绑定成功"
                     else:
                         return False, "绑定失败"
             return False, f"HTTP {response.status_code}"
         except Exception as e:
             return False, str(e)
-    
+
     def logout(self, session: requests.Session) -> Tuple[bool, str]:
         """退出登录"""
         if not session:
             return False, "没有登录会话"
-        
+
         url = f"{self.base_url}/user/logout.html"
-        
+
         session.headers.update({
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
             'Referer': f'{self.base_url}/index/index.html',
             'Upgrade-Insecure-Requests': '1',
         })
-        
+
         try:
             response = session.get(url, timeout=10)
             if response.status_code == 200:
@@ -254,78 +226,65 @@ class ZodiacBot:
                     else:
                         return False, result.get('info', '退出失败')
                 except:
-                    html = response.text
-                    if '退出成功' in html:
+                    if '退出成功' in response.text:
                         return True, "退出成功"
                     else:
                         return False, "退出失败"
             return False, f"HTTP {response.status_code}"
         except Exception as e:
             return False, str(e)
-    
+
     def register_one(self, ref_code: str = "125872") -> Tuple[bool, dict]:
-        """
-        注册一个账号
-        返回: (是否成功, 账号信息字典)
-        """
+        """注册一个账号"""
         phone = self.generate_realistic_phone()
-        password = self.generate_password()
+        password = self.generate_human_password()
         realname = self.generate_realname()
         alipay = phone
-        
+
         account_info = {
             'phone': phone,
             'password': password,
             'realname': realname,
             'alipay': alipay
         }
-        
+
         # 注册
         success, msg = self.register_account(phone, password, realname, ref_code)
         if not success:
             account_info['status'] = 'failed'
             account_info['message'] = f'注册失败: {msg}'
             return False, account_info
+
         account_info['status'] = 'registered'
         account_info['message'] = msg
-        
+
         # 登录
         success, session, msg = self.login(phone, password)
         if not success:
             account_info['status'] = 'login_failed'
             account_info['message'] = f'注册成功，登录失败: {msg}'
             return True, account_info
-        
+
         # 绑定支付宝
         success, msg = self.bind_alipay(session, realname, alipay)
         if success:
             account_info['alipay_status'] = 'bound'
-            account_info['message'] = f'注册成功，已绑定支付宝'
+            account_info['message'] = '注册成功，已绑定支付宝'
         else:
             account_info['alipay_status'] = 'bind_failed'
             account_info['message'] = f'注册成功，绑定支付宝失败: {msg}'
-        
+
         # 退出登录
         self.logout(session)
-        
+
         return True, account_info
 
 
 def run(args: list = None):
-    """
-    入口函数 - APP会调用这个函数
-    
-    参数:
-        args: 用户输入的内容
-              例如输入 "5 125872" -> args = ["5", "125872"]
-    
-    返回:
-        字符串，会显示在界面上
-    """
-    # 解析参数
+    """入口函数"""
     count = 1
     ref_code = "125872"
-    
+
     if args and len(args) > 0:
         try:
             count = int(args[0])
@@ -333,25 +292,25 @@ def run(args: list = None):
                 count = 1
         except:
             pass
-        
+
         if len(args) > 1:
             ref_code = args[1]
-    
+
     bot = ZodiacBot()
     results = []
     success_count = 0
     fail_count = 0
-    
-    results.append(f"🐉 十二生肖注册机器人")
+
+    results.append(f"开始注册 {count} 个账号")
     results.append(f"推荐码: {ref_code}")
-    results.append(f"计划注册: {count} 个账号")
     results.append("=" * 40)
-    
+
     for i in range(count):
-        results.append(f"\n▶ 第 {i+1}/{count} 个账号")
-        
+        results.append("")
+        results.append(f"第 {i+1}/{count} 个账号")
+
         success, info = bot.register_one(ref_code)
-        
+
         if success:
             success_count += 1
             results.append(f"✅ 手机: {info['phone']}")
@@ -361,20 +320,19 @@ def run(args: list = None):
         else:
             fail_count += 1
             results.append(f"❌ 失败: {info.get('message', '未知错误')}")
-        
-        # 间隔
+
         if i < count - 1:
             delay = random.uniform(2, 5)
             results.append(f"⏳ 等待 {delay:.1f} 秒...")
             time.sleep(delay)
-    
-    results.append("\n" + "=" * 40)
-    results.append(f"📊 统计: 成功 {success_count} 个，失败 {fail_count} 个")
+
+    results.append("")
     results.append("=" * 40)
-    
+    results.append(f"统计: 成功 {success_count} 个，失败 {fail_count} 个")
+    results.append("=" * 40)
+
     return "\n".join(results)
 
 
-# 测试用
 if __name__ == "__main__":
     print(run(["2"]))
